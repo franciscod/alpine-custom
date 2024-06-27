@@ -4,6 +4,14 @@ qemu: qemu-vm1
 
 full: vm0 sleep vm1 qemu
 
+unpack:
+	mcopy -i drive.img@@1M ::alpine.apkovl.tar.gz apkovl/
+	cd apkovl; tar xf alpine.apkovl.tar.gz
+	rm apkovl/alpine.apkovl.tar.gz
+
+flash:
+	sudo ./flash.sh
+
 sleep:
 	sleep 3
 
