@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="generator" content="cl-yag" />
+    <title>Solene'% : How-to install Alpine Linux in full ram with persistency</title>
+    <link rel="stylesheet" type="text/css" href="static/concat-styles.css" media="screen" />
+    <link rel="alternate" type="application/rss+xml" title="Solene'% : How-to install Alpine Linux in full ram with persistency RSS Feed" href="rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title="Solene'% : How-to install Alpine Linux in full ram with persistency RSS Feed Gopher" href="rss-gopher.xml" />
+    <link rel="alternate" type="application/rss+xml" title="Solene'% : How-to install Alpine Linux in full ram with persistency RSS Feed HTML" href="rss-html.xml" />
+    <link rel="icon" type="image/x-icon" href="/~solene/static/img/favicon.png" />
+    <meta property="og:site_name" content="Solene's Percent %" />
+    <meta property="og:title" content="Solene'% : How-to install Alpine Linux in full ram with persistency" />
+    <meta property="og:image" content="/~solene/static/og-logo.png" />
+    <meta property="og:url" content="https://dataswamp.org/~solene/2023-07-14-alpine-linux-from-ram-but-persistent.html" />
+
+    <meta property="og:description" content="In this article, you will learn how to install and configure Alpine Linux to run your system from memory and save its state for next boots." />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_EN" />
+  </head>
+
+    <body>
+    <div id="wrapper">
+      <header>
+	<nav class="pure-menu pure-menu-horizontal">
+	    <ul class="pure-menu-list">
+	      <li class="pure-menu-item"><a href="index.html" class="pure-menu-link">Index</a></li>
+	      <li class="pure-menu-item"><a href="index-full.html" class="pure-menu-link">Everything</a></li>
+	      <li class="pure-menu-item"><a href="rss.xml" class="pure-menu-link">RSS</a></li>
+	      <li class="pure-menu-item"><a href="rss-html.xml" class="pure-menu-link">RSS using HTML</a></li>
+            </ul>
+	</nav>
+        <article>
+          <header>
+            <p><strong>About me:</strong> My name is <em>Solène Rapenne</em>, pronouns she/her. I like learning and
+	       sharing knowledge. Hobbies: '(BSD OpenBSD Qubes OS Lisp cmdline gaming security QubesOS internet-stuff). I
+	       <strong>love</strong> percent and lambda characters. OpenBSD developer solene@. No AI is involved in this blog.</p>
+            <p>Contact me: <em>solene at dataswamp dot org</em> or
+              <a style="display: none;" rel="me" href="https://bsd.network/@solene"></a><em>@solene@bsd.network</em> (mastodon).
+            </p>
+            <p>
+              You can <a href="https://dataswamp.org/~solene/page-donate.html">sponsor my work financially</a> if you want to help me writing this blog and contributing to Free Software as my daily job.
+            </p>
+          </header>
+        </article>
+      </header>
+
+      <main>
+<article id="20230714">
+  <header>
+  
+    <h1 id="article-40"><a href="2023-07-14-alpine-linux-from-ram-but-persistent.html">How-to install Alpine Linux in full ram with persistency</a></h1>
+    <p>Written by <em>Solène</em>, on 14 July 2023.<br/>Tags: 
+<span><a href="tag-immutability.html">#immutability</a></span>
+
+
+<span><a href="tag-linux.html">#linux</a></span>
+
+
+<span><a href="tag-alpine.html">#alpine</a></span>
+
+</p>
+    <div><a href="https://bsd.network/@solenepercent/110736985601142968">Comments on Fediverse/Mastodon</a></div>
+    <div></div>
+  </header>
+  <h1 id="_Introduction">1. Introduction <a href="#_Introduction">§</a></h1>
+<p>In this guide, I'd like to share with you how to install Alpine Linux, so it runs entirely from RAM, but using its built-in tool to handle persistency.  Perfect setup for a NAS or router, so you don't waste a disk for the system, and this can even be used for a workstation.
+</p>
+<p><a href='https://www.alpinelinux.org'>Alpine Linux official project website</a></p>
+<p><a href='https://wiki.alpinelinux.org/wiki/Alpine_local_backup'>Alpine Linux wiki: Alpine local backup</a></p>
+<h1 id="_The_plan">2. The plan <a href="#_The_plan">§</a></h1>
+<p>Basically, we want to get the Alpine installer on a writable disk formatted in FAT instead of a read only image like official installers, then we will use the command <code>lbu</code> to handle persistency, and we will see what need to be configured to have a working system.
+</p>
+<p>This is only a list of steps, they will be detailed later:
+</p>
+<ol>
+
+  <li>boot from an Alpine Installer (if you are using Alpine, you don't need too)</li>
+  <li>format an usb memory drive with an ESP partition and make it bootable</li>
+  <li>run <code>setup-bootloader</code> to copy the bootloader from the installer to the freshly formatted drive</li>
+  <li>reboot on the usb drive</li>
+  <li>run <code>setup-alpine</code></li>
+  <li>you are on your new Alpine system</li>
+  <li>run <code>lbu commit</code> to make changes persistent across reboot</li>
+  <li>make changes, run <code>lbu commit</code> again</li>
+</ol>
+
+<figure><a href='static/solene-lbu.png'><picture><img src='static/solene-lbu.png' alt='A mad scientist Girl with a t-shirt labeled "rare t-shirt" is looking at a penguin strapped on a Frankenstein like machine, with his head connected to a huge box with LBU written on it.' width='60%' /></picture><figcaption>A mad scientist Girl with a t-shirt labeled "rare t-shirt" is looking at a penguin strapped on a Frankenstein like machine, with his head connected to a huge box with LBU written on it.</figcaption></a></figure>
+<p><a href='https://merveilles.town/@prahou'>Artwork above by Prahou</a></p>
+<h1 id="_The_setup">3. The setup <a href="#_The_setup">§</a></h1>
+<h2 id="_Booting_Alpine">3.1. Booting Alpine <a href="#_Booting_Alpine">§</a></h2>
+<p>For this step you have to download an Alpine Linux installer, take the one that suits your needs, if unsure, take the "Extended" one.  Don't forget to verify the file checksum.
+</p>
+<p><a href='https://www.alpinelinux.org/downloads/'></a></p>
+<p>Once you have the ISO file, create the installation media:
+</p>
+<p><a href='https://docs.alpinelinux.org/user-handbook/0.1a/Installing/medium.html#_using_the_image'>Alpine Linux documentation: Using the image</a></p>
+<p>Now, boot your system using your brand-new installer.
+</p>
+<h2 id="_Writable_boot_media_creation">3.2. Writable boot media creation <a href="#_Writable_boot_media_creation">§</a></h2>
+<p>In this step, we will need to boot on the Alpine installer to create a new Alpine installer, but writable.
+</p>
+<p>You need another USB media for this step, the one that will keep your system and data.
+</p>
+<p>On Alpine Linux, you can use <code>setup-alpine</code> to configure your network, key map and a few things for the current system.  You only have to say &quot;none&quot; when you are asked what you want to install, where, and if you want to store the configuration somewhere.
+</p>
+<p>Run the following commands on the destination USB drive (networking is required to install a package), this will format it and use all the space as a FAT32 partition.  In the example below, the drive is <code>/dev/sdc</code>.
+</p>
+<pre><code>apk add parted
+parted /dev/sdc -- mklabel gpt
+parted /dev/sdc -- mkpart ESP fat32 1MB 100%
+parted /dev/sdc -- set 1 esp on
+</code></pre>
+<p>This creates a GPT table on <code>/dev/sdc</code>, then creates a first partition as FAT32 from the first megabyte up to the full disk size, and finally marks it bootable.  This guide is only for UEFI compatible systems.
+</p>
+<p>We actually have to format the drive as FAT32, otherwise it's just a partition type without a way to mount it as FAT32:
+</p>
+<pre><code>mkfs.vfat /dev/sdc1
+modprobe vfat
+</code></pre>
+<p>Final step, we use an Alpine tool to copy the bootloader from the installer to our new disk.  In the example below, your installer may be <code>/media/usb</code> and the destination <code>/dev/sdc1</code>, you could figure the first one using <code>mount</code>.
+</p>
+<pre><code>setup-bootable /media/usb /dev/sdc1
+</code></pre>
+<p>At this step, you made a USB disk in FAT32 containing the Alpine Linux installer you were using live.  Reboot on the new one.
+</p>
+<h2 id="_System_installation">3.3. System installation <a href="#_System_installation">§</a></h2>
+<p>On your new installation media, run <code>setup-alpine</code> as if you were installing Alpine Linux, but answer &quot;none&quot; when you are asked which disk you want to use. When asked &quot;Enter where to store configs&quot;, you should be prompted your new device by default, accept.  Immediately, after, you will be prompted for an APK cache, accept.
+</p>
+<p>At this point, we can say Alpine is installed!  Don't reboot yet, you are already on your new system!
+</p>
+<p>Just use it, and run <code>lbu commit</code> when you need to save changes done to packages or <code>/etc/</code>.  <code>lbu commit</code> creates a new tarball in your USB disk containing a list of files configured in <code>/etc/apk/protected_paths.d/</code>, and this tarball is loaded at boot time, and will install your package list quickly from the local cache.
+</p>
+<p><a href='https://wiki.alpinelinux.org/wiki/Alpine_local_backup'>Alpine Linux wiki: Alpine local backup (lbu command documentation)</a></p>
+<p>Please take extra care that if you include more files, everything you commit the changes, they have to be stored on your USB media.  You could modify the fstab to add an extra disk/partition for persistent data on a performant drive.
+</p>
+<h1 id="_Updating_the_kernel">4. Updating the kernel <a href="#_Updating_the_kernel">§</a></h1>
+<p>The kernel can&#x27;t be upgraded using apk, you have to use the script <code>update-kernel</code> that will create a &quot;modloop&quot; file in the boot partition which contains the boot image.  You can&#x27;t rollback this file.
+</p>
+<p>You will need a few gigabytes in your in-memory filesystem, or use a temporary build directory by affecting <code>TMPDIR</code> variable to a persistent storage.
+</p>
+<p>By default, tmpfs on root is set to 1 GB, this can be increased given you have enough memory using the command: <code>mount -o remount,size=6G /</code>.
+</p>
+<p>The script should have the boot directory as a parameter, so it should look like <code>update-kernel /media/usb/boot</code> in a default setup, if you use an external partition, this would look like <code>env TMPDIR=/mnt/something/ update-kernel /media/usb/boot</code>.
+</p>
+<h2 id="_Extra_configuration">4.1. Extra configuration <a href="#_Extra_configuration">§</a></h2>
+<p>Here is a list of tweaks to improve your experience!
+</p>
+<h3 id="_keep_last_n_configuration">4.1.1. keep last n configuration <a href="#_keep_last_n_configuration">§</a></h3>
+<p>By default, lbu will only keep the last version you save, by setting<code>BACKUP_LIMIT</code> to a number n, you will always have the last n versions of your system stored in the boot media, this is practical if you want to roll back a change.
+</p>
+<h3 id="_apk_repositories">4.1.2. apk repositories <a href="#_apk_repositories">§</a></h3>
+<p>Edit <code>/etc/apk/repositories</code> to uncomment the community repository.
+</p>
+<h3 id="_fstab_check">4.1.3. fstab check <a href="#_fstab_check">§</a></h3>
+<p>Edit <code>/etc/fstab</code> to make sure the disk you are using is explicitly configured using a UUID entry, if you only have this:
+</p>
+<pre><code>/dev/cdrom	/media/cdrom	iso9660	noauto,ro 0 0
+/dev/usbdisk	/media/usb	vfat noauto,ro 0 0
+</code></pre>
+<p>This mean your system may have troubles if you use it on a different computer or that you plug another USB disk in it.  Fix by using the UUID of your partition, you can find it using the program <code>blkid</code> from the eponym package, and fix the fstab like this:
+</p>
+<pre><code>UUID=61B2-04FA	/media/persist	vfat	noauto,ro 0 0
+/dev/cdrom	/media/cdrom	iso9660	noauto,ro 0 0
+/dev/usbdisk	/media/usb	vfat noauto,ro 0 0
+</code></pre>
+<p>This will ALWAYS mount your drive as <code>/media/persist</code>.
+</p>
+<p>If you had to make the change, you need to make some extra changes to keep things coherent:
+</p>
+<ul>
+
+  <li>set <code>LBU_MEDIA=persist</code> into <code>/etc/lbu/lbu.conf</code></li>
+  <li>umount the drive in <code>/media</code> and run <code>mkdir -p /media/persist &amp;&amp; mount -a</code>, you should have <code>/media/persist</code> with data in it</li>
+  <li>run <code>lbu commit</code> to save the changes</li>
+</ul>
+
+<h3 id="_desktop_setup">4.1.4. desktop setup <a href="#_desktop_setup">§</a></h3>
+<p>You can install a graphical desktop, this can easily be done with these commands:
+</p>
+<pre><code>setup-desktop xfce
+setup-xorg-base
+</code></pre>
+<p>Due to a bug, we have to re-enable some important services, otherwise you would not have networking at the next boot:
+</p>
+<pre><code>rc-update add hwdrivers sysinit
+</code></pre>
+<p><a href='https://gitlab.alpinelinux.org/alpine/aports/-/issues/9653'>Alpine bug report #9653</a></p>
+<p>You may want to enable the display manager at boot, which may be lightdm, gdm or sddm depending on your desktop:
+</p>
+<pre><code>rc-update add lightdm
+</code></pre>
+<h3 id="_user_persistency">4.1.5. user persistency <a href="#_user_persistency">§</a></h3>
+<p>If you added a user during <code>setup-alpine</code>, its home directory has been automatically added to <code>/etc/apk/protected_paths.d/lbu.list</code>, when you run <code>lbu commit</code>, its whole home is stored.  This may not be desired.
+</p>
+<p>If you don't want to save the whole home directory, but only a selection of files/directories, here is how to proceed:
+</p>
+<ol>
+
+  <li>edit <code>/etc/apk/protected_paths.d/lbu.list</code> to remove the line adding your user directory</li>
+  <li>you need to create the user directory at boot with the correct permissions: <code>echo &quot;install -d -o solene -g solene -m 700 /home/solene&quot; | doas tee /etc/local.d/00-user.start</code></li>
+  <li>in case you have some persistency set at least one user sub directories, it&#x27;s important to fix the permissions of all the user data after the boot: <code>echo &quot;chown -R solene:solene /home/solene | doas tee -a /etc/local.d/00-user.start</code></li>
+  <li>you need to mark this script as executable: <code>doas chmod +x /etc/local.d/00-user.start</code></li>
+  <li>you need to run the local scripts at boot time: <code>doas rc-update add local</code></li>
+  <li>save the changes: <code>doas lbu commit</code></li>
+</ol>
+
+<p>I&#x27;d recommend the use of a directory named <code>Persist</code> and adding it to the lbu list.  Doing so, you have a place to store some important data without having to save all your home directory (including garbage such as cache).  This is even nicer if you use ecryptfs as explained below.
+</p>
+<h3 id="_extra_convenience">4.1.6. extra convenience <a href="#_extra_convenience">§</a></h3>
+<p>Because Alpine Linux is packaged in a minimalistic manner, you may have to install a lot of extra packages to have all the fonts, icons, emojis, cursors etc... working correctly as you would expect for a standard Linux desktop.
+</p>
+<p>Fortunately, there is a community guide explaining each section you may want to configure.
+</p>
+<p><a href='https://wiki.alpinelinux.org/wiki/Post_installation'>Alpine Linux wiki: Post installation</a></p>
+<h3 id="_Set_X_default_keyboard_layout">4.1.7. Set X default keyboard layout <a href="#_Set_X_default_keyboard_layout">§</a></h3>
+<p>Alpine insists of you using a qwerty desktop for X until you log into your session, this can be complicated to type passwords.
+</p>
+<p>You can create a file <code>/etc/X11/xorg.conf.d/00-keyboard.conf</code> like in the linked example and choose your default keyboard layout.  You will have to create the directories <code>/etc/X11/xorg.conf.d</code> first.
+</p>
+<p><a href='https://wiki.archlinux.org/title/Xorg/Keyboard_configuration#Using_X_configuration_files'>Arch Linux wiki: Keyboard configuration</a></p>
+<h3 id="_encrypted_personal_directory">4.1.8. encrypted personal directory <a href="#_encrypted_personal_directory">§</a></h3>
+<p>You could use ecryptfs to either encrypt the home partition of your user, or just give it a Private directory that could be unlocked on demand AND made persistent without pulling all the user files at every configuration commit.
+</p>
+<pre><code>$ doas apk add ecryptfs-utils
+$ doas modprobe ecryptfs
+$ ecryptfs-setup-private
+Enter your login passphrase [solene]:
+Enter your mount passphrase [leave blank to generate one]:
+[...]
+$ doas lbu add $HOME/.Private
+$ doas lbu add $HOME/.ecryptfs
+$ echo &quot;install -d -o solene -g solene -m 700 /home/solene/Private&quot; | doas tee /etc/local.d/50-ecryptfs.start
+$ doas chmod +x /etc/local.d/50-ecryptfs.start
+$ doas rc-update add local
+$ doas lbu commit
+</code></pre>
+<p>Now, when you need to access your private directory, run <code>ecryptfs-mount-private</code> and you have your <code>$HOME/Private</code> directory which is encrypted.
+</p>
+<p>You could use ecryptfs to encrypt the whole user directory, this requires extra steps and changes into <code>/etc/pam.d/base-auth</code>, don&#x27;t forget to add <code>/home/.ecryptfs</code> to the lbu include list.
+</p>
+<p><a href='https://dataswamp.org/~solene/2023-03-12-encrypt-with-ecryptfs.html'>Using ecryptfs guide</a></p>
+<h1 id="_Security">5. Security <a href="#_Security">§</a></h1>
+<p>Let's be clear, this setup isn't secure!  The weak part is the boot media, which doesn't use secure boot, could easily be modified, and has nothing encrypted (except the local backups, but NOT BY DEFAULT).
+</p>
+<p>However, once the system has booted, if you remove the boot media, nothing can be damaged as everything lives in memory, but you should still use passwords for your users.
+</p>
+<h1 id="_Conclusion">6. Conclusion <a href="#_Conclusion">§</a></h1>
+<p>Alpine is a very good platform for this kind of setup, and they provide all the tools out of the box!  It's a very fun setup to play with.
+</p>
+<p>Don't forget that by default everything runs from memory without persistency, so be careful if you generate data you don't want to lose (passwords, downloads, etc...).
+</p>
+<h1 id="_Going_further">7. Going further <a href="#_Going_further">§</a></h1>
+<p>The lbu configuration can be encrypted, this is recommended if you plan to carry your disk around, especially if it contains sensitive data.
+</p>
+<p>You can use the fat32 partition only for the bootloader and the local backup files, but you could have an extra partition that could be mounted for /home or something, and why not a layer of LUKS for encryption.
+</p>
+<p>You may want to use zram if you are tight on memory, this creates a compressed block device that could be used for swap, it's basically compressed RAM, it's very efficient but less useful if you have a slow CPU.
+</p>
+
+</article>
+</main>
+
+      <footer>
+        <hr />
+	<p>This article has been useful for you? Please consider <a href="https://dataswamp.org/~solene/page-donate.html">supporting my work</a>.</p>
+        <p>Content under <a href="https://creativecommons.org/licenses/by/4.0/legalcode">CC-BY-4.0</a>.
+	<p><a href="https://dataswamp.org/~solene/tag-cl-yag.html">This blog is powered by cl-yag!</a></p>
+      </footer>
+
+    </div><!-- #wrapper -->
+  </body>
+</html>

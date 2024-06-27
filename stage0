@@ -1,0 +1,10 @@
+set timeout 60
+spawn make qemu-vm0
+expect "boot:"  { send "\r" }
+expect "login:" { send "root\r" }
+expect ":~#"    { send "setup-interfaces -ar\r" }
+expect ":~#"    { send "setup-apkrepos -1\r" }
+expect ":~#"    { send "mkfs.vfat /dev/sda1\r" }
+expect ":~#"    { send "modprobe vfat\r" }
+expect ":~#"    { send "setup-bootable /media/cdrom /dev/sda1\r" }
+expect ":~#"    { send "poweroff\r" }

@@ -1,0 +1,15 @@
+set timeout 60
+spawn make qemu-vm1
+expect "boot:"    { send "\r" }
+expect "login:"   { send "root\r" }
+expect ":~#"      { send "setup-alpine -q\r" }
+expect ":~#"      { send "setup-apkrepos -c1\r" }
+expect ":~#"      { send "setup-lbu\r" }
+expect "configs"  { send "\r" }
+expect ":~#"      { send "setup-apkcache\r" }
+expect "cache"    { send "\r" }
+expect ":~#"      { send "apk add fish neovim tig elinks tmux terminus-font\r" }
+expect ":~#"      { send "setup-xorg-base\r" }
+expect ":~#"      { send "apk add openbox firefox ttf-liberation\r" }
+expect ":~#"      { send "lbu commit\r" }
+expect ":~#"      { send "poweroff\r" }
